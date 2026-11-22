@@ -1,3 +1,5 @@
+![Praline: your voice on the web of Markdown. Support the BonBon Markdown browser in WordPress.](assets/banner-1544x500.png)
+
 # Praline
 
 Serves a WordPress site's posts and pages as Markdown for [BonBon](https://github.com/scripting/bonBon), the browser for the Markdown web, with everything BonBon reads beyond the Markdown itself.
@@ -99,7 +101,7 @@ What a site gets is everything not listed in `.distignore`: `praline.php`, `unin
 
 There's no need for `composer install --no-dev`: the bundled code is already in `vendor-prefixed/`, and Composer is needed only to rebuild it.
 
-`assets/` is for the WordPress.org listing, deployed to the SVN `assets/` folder, never to sites. It's empty for now. WordPress.org reads these names:
+`assets/` is for the WordPress.org listing, deployed to the SVN `assets/` folder, never to sites. It holds the icon and banner so far. WordPress.org reads these names:
 
 - **Icon:** `icon.svg`, or `icon-128x128.png` and `icon-256x256.png`.
 - **Banner:** `banner-772x250.png` and `banner-1544x500.png`.
