@@ -173,6 +173,10 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 5
+    env:
+      # A pull request is checked out as a merge commit on no branch, which
+      # Composer would record as the root package's version, dev-<commit>.
+      COMPOSER_ROOT_VERSION: dev-main
 
     steps:
       - name: Checkout repository
@@ -192,11 +196,12 @@ jobs:
 
       - name: Check vendor-prefixed/ is unchanged
         run: |
-          # Ignored: the date in the modification notices, the commit Composer
-          # records, and the package numbers in installed.json.
+          # Ignored: the date in the modification notices, the root commit Composer
+          # records (NULL with COMPOSER_ROOT_VERSION), and the package numbers in
+          # installed.json.
           git diff --exit-code \
             -I 'Modified by Praline on [0-9-]+:' \
-            -I "'reference' => '[0-9a-f]*'," \
+            -I "'reference' => ('[0-9a-f]*'|NULL)," \
             -I '^ +"[0-9]+": \{$' \
             -- vendor-prefixed
           untracked="$(git ls-files --others --exclude-standard -- vendor-prefixed)"
