@@ -1,0 +1,33 @@
+# Left out of the plugin package (`wp dist-archive`, and the WordPress.org
+# deploy). Keep in step with the export-ignore lines in .gitattributes.
+
+# Development and source control
+/.claude
+/.git
+/.github
+/.distignore
+/.editorconfig
+/.gitattributes
+/.gitignore
+/.phpunit.result.cache
+/.superpowers
+
+# WordPress.org banners, icons and screenshots (deployed to SVN /assets)
+/assets
+
+# Build and test
+/bin
+/cache
+/composer.json
+/composer.lock
+/docs
+/phpcs.xml.dist
+/phpunit.xml.dist
+/tests
+/vendor
+
+# GitHub's readme; WordPress reads readme.txt
+/README.md
+
+# macOS folder metadata, in any folder
+.DS_Store

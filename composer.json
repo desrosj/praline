@@ -1,0 +1,40 @@
+{
+    "name": "desrosj/praline",
+    "description": "Serves WordPress posts and pages as Markdown for BonBon, the browser for the Markdown web.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "repositories": [
+        { "type": "vcs", "url": "https://github.com/ProgressPlanner/markdown-alternate" }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "joost/markdown-alternate": "1.2.0"
+    },
+    "require-dev": {
+        "brianhenryie/strauss": "0.22.6"
+    },
+    "config": {
+        "allow-plugins": { "composer/installers": false },
+        "platform": { "php": "8.2" },
+        "sort-packages": true
+    },
+    "extra": {
+        "installer-paths": { "vendor/{$vendor}/{$name}": ["type:wordpress-plugin"] },
+        "strauss": {
+            "target_directory": "vendor-prefixed",
+            "namespace_prefix": "Praline\\Vendor\\",
+            "classmap_prefix": "Praline_",
+            "packages": ["joost/markdown-alternate"],
+            "exclude_from_copy": {
+                "packages": ["yahnis-elsts/plugin-update-checker"],
+                "file_patterns": ["~markdown-alternate/(markdown-alternate\\.php|src/Plugin\\.php|src/Integration/|tests/)~"]
+            },
+            "delete_vendor_packages": false
+        }
+    },
+    "scripts": {
+        "prefix": ["strauss", "@php bin/mark-modified.php"],
+        "post-install-cmd": ["@prefix"],
+        "post-update-cmd": ["@prefix"]
+    }
+}
