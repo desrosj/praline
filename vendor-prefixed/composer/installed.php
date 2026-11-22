@@ -4,7 +4,7 @@
     'name' => 'desrosj/praline',
     'pretty_version' => 'dev-main',
     'version' => 'dev-main',
-    'reference' => 'ab160ac2da2b2de0e8d318f43d0a7ebff1bb7081',
+    'reference' => '36c2901f0bec8a1d3171e5b48f85bb95b1c32354',
     'type' => 'wordpress-plugin',
     'install_path' => __DIR__ . '/../',
     'aliases' => 

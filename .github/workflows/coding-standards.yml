@@ -1,0 +1,128 @@
+name: Coding Standards
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.php'
+      - 'composer.*'
+      - 'phpcs.xml.dist'
+      - 'phpcompat.xml.dist'
+      - '.github/workflows/coding-standards.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.php'
+      - 'composer.*'
+      - 'phpcs.xml.dist'
+      - 'phpcompat.xml.dist'
+      - '.github/workflows/coding-standards.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  phpcs:
+    name: PHP coding standards
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: cs2pr
+
+      - name: Get last Monday's date
+        id: get-date
+        run: echo "date=$(/bin/date -u --date='last Mon' "+%F")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PHPCS scan cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/phpcs.json
+          key: ${{ runner.os }}-date-${{ steps.get-date.outputs.date }}-phpcs-${{ hashFiles('**/composer.json', 'phpcs.xml.dist') }}
+
+      # --no-scripts: the coding standards don't need a fresh Strauss build.
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          composer-options: '--no-scripts'
+          custom-cache-suffix: ${{ steps.get-date.outputs.date }}
+
+      - name: Make Composer packages available globally
+        run: echo "${PWD}/vendor/bin" >> "$GITHUB_PATH"
+
+      - name: Run PHPCS
+        id: phpcs
+        run: |
+          mkdir -p .cache
+          phpcs -n --report-full --cache=./.cache/phpcs.json --report-checkstyle=./.cache/phpcs-report.xml
+
+      - name: Show PHPCS results in PR
+        if: ${{ always() && steps.phpcs.outcome == 'failure' }}
+        run: cs2pr ./.cache/phpcs-report.xml
+
+  php-compatibility:
+    name: PHP compatibility
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: cs2pr
+
+      - name: Get last Monday's date
+        id: get-date
+        run: echo "date=$(/bin/date -u --date='last Mon' "+%F")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PHP compatibility scan cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/phpcompat.json
+          key: ${{ runner.os }}-date-${{ steps.get-date.outputs.date }}-phpcompat-${{ hashFiles('**/composer.json', 'phpcompat.xml.dist') }}
+
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          composer-options: '--no-scripts'
+          custom-cache-suffix: ${{ steps.get-date.outputs.date }}
+
+      - name: Make Composer packages available globally
+        run: echo "${PWD}/vendor/bin" >> "$GITHUB_PATH"
+
+      - name: Run PHP compatibility checks
+        id: phpcompat
+        run: |
+          mkdir -p .cache
+          phpcs --standard=phpcompat.xml.dist --report-full --cache=./.cache/phpcompat.json --report-checkstyle=./.cache/phpcompat-report.xml
+
+      - name: Show PHP compatibility results in PR
+        if: ${{ always() && steps.phpcompat.outcome == 'failure' }}
+        run: cs2pr ./.cache/phpcompat-report.xml

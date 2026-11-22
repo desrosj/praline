@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<ruleset name="Praline: PHP compatibility">
+	<description>PHP compatibility checks for Praline and the code it bundles.</description>
+
+	<file>praline.php</file>
+	<file>uninstall.php</file>
+	<file>src</file>
+	<file>vendor-prefixed</file>
+	<arg name="extensions" value="php"/>
+	<arg value="s"/>
+
+	<!-- The plugin's "Requires PHP" header is 8.2; check compatibility with 8.2 and up. -->
+	<config name="testVersion" value="8.2-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- PHPCompatibility 9.3.5 predates enums and reads $this in an enum method as outside a class. -->
+	<rule ref="PHPCompatibility.Variables.ForbiddenThisUseContexts.OutsideObjectContext">
+		<exclude-pattern>src/Direction.php</exclude-pattern>
+	</rule>
+</ruleset>

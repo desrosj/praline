@@ -1,6 +1,6 @@
 {
     "packages": {
-        "12": {
+        "14": {
             "name": "joost/markdown-alternate",
             "version": "v1.2.0",
             "version_normalized": "1.2.0.0",
@@ -38,7 +38,7 @@
             },
             "install-path": "../joost/markdown-alternate"
         },
-        "18": {
+        "20": {
             "name": "league/html-to-markdown",
             "version": "5.2.3",
             "version_normalized": "5.2.3.0",
