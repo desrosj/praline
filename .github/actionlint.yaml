@@ -1,0 +1,5 @@
+# actionlint doesn't know every GitHub-hosted runner label yet. Declare the
+# ones these workflows use that it rejects, until a release includes them.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

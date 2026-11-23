@@ -73,7 +73,7 @@ GPL-2.0-or-later.
 1. Change the `joost/markdown-alternate` version in `composer.json`.
 2. Run `composer update joost/markdown-alternate`. Composer reruns Strauss and `bin/mark-modified.php`.
 3. Read what changed: `gh api repos/ProgressPlanner/markdown-alternate/compare/v<old>...v<new>`. Look closest at `src/Router/RewriteHandler.php`, which `MarkdownRouter` extends, and at the filters this plugin uses.
-4. Run the tests below. The Unit Tests workflow's rebuild check confirms `vendor-prefixed/` matches `composer.lock`.
+4. Run the tests below. The Bundled Code workflow confirms `vendor-prefixed/` matches `composer.lock`.
 5. Commit `composer.json`, `composer.lock` and `vendor-prefixed/`.
 
 ## Tests
@@ -92,11 +92,13 @@ PHPUnit needs the WordPress test suite. It uses `WP_TESTS_DIR` when that's set; 
 
 GitHub Actions runs all of this on pull requests and on `main`:
 
-- **Unit Tests:** PHPUnit on PHP 8.2 to 8.6 with the latest WordPress, and on PHP 8.2 with WordPress 6.5; the end-to-end checks on PHP 8.2 and 8.6, with the bundled and with the standalone Markdown Alternate (its 1.2.0 release, checked against its SHA-256); and a rebuild of `vendor-prefixed/` that must match what's committed.
+- **PHPUnit Tests:** PHP 8.2 to 8.6, each with the latest WordPress release and with nightly (trunk), plus PHP 8.2 with WordPress 6.5.
+- **End-to-end Tests:** the end-to-end checks on PHP 8.2 and 8.6 with the latest WordPress, with the bundled and with the standalone Markdown Alternate (its 1.2.0 release, checked against its SHA-256).
+- **Bundled Code:** a rebuild of `vendor-prefixed/` that must match what's committed.
 - **Coding Standards:** PHPCS and PHP compatibility, with results shown on the pull request.
 - **Lint Workflows:** actionlint and zizmor on the workflow files.
 
-Dependabot proposes GitHub Actions and Composer updates weekly. A Composer update that changes the bundled code fails the rebuild check until `vendor-prefixed/` is rebuilt (`composer prefix`) and committed.
+Dependabot proposes GitHub Actions and Composer updates weekly. A Composer update that changes the bundled code fails the Bundled Code workflow until `vendor-prefixed/` is rebuilt (`composer prefix`) and committed.
 
 ## Packaging a release
 
