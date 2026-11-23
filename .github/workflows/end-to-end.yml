@@ -1,0 +1,129 @@
+##
+# A workflow that runs Praline's end-to-end tests.
+#
+# `tests/e2e/run.sh` installs a real WordPress site, serves it with PHP's built-in server, and
+# requests pages the way BonBon does, checking the redirects, Markdown, front matter, table of
+# contents and search that come back.
+##
+name: End-to-end Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Only run when changes are made to the plugin's code or its tests.
+      - '**.php'
+      - 'bin/install-wp-tests.sh'
+      - 'tests/**'
+      - 'vendor-prefixed/**'
+      - '.github/workflows/end-to-end.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      # Only run when changes are made to the plugin's code or its tests.
+      - '**.php'
+      - 'bin/install-wp-tests.sh'
+      - 'tests/**'
+      - 'vendor-prefixed/**'
+      - '.github/workflows/end-to-end.yml'
+  workflow_dispatch:
+
+# Cancels all previous workflow runs for pull requests that have not completed.
+concurrency:
+  # The concurrency group contains the workflow name and the branch name for pull requests
+  # or the commit hash for any other events.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+# Disable permissions for all available scopes by default.
+# Any needed permissions should be configured at the job level.
+permissions: {}
+
+jobs:
+  # Runs the end-to-end tests.
+  #
+  # Each PHP version is tested once with Praline's bundled copy of Markdown Alternate, and once
+  # with the standalone Markdown Alternate plugin active alongside it. The standalone plugin is
+  # downloaded from its release and checked against the release's SHA-256 checksum.
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Sets up PHP.
+  # - Installs WordPress.
+  # - Copies the plugin into WordPress.
+  # - Downloads, verifies and installs the standalone Markdown Alternate plugin (standalone jobs only).
+  # - Runs the end-to-end tests.
+  # - Shows PHP's debug log when the tests fail.
+  e2e:
+    name: End-to-end (PHP ${{ matrix.php }}, ${{ matrix.markdown-alternate }} Markdown Alternate)
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '8.2', '8.6' ]
+        markdown-alternate: [ 'bundled', 'standalone' ]
+    services:
+      database:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      # The plugin runs from its committed vendor-prefixed/, so no Composer install.
+      - name: Install WordPress
+        run: bash bin/install-wp-tests.sh praline_e2e root root 127.0.0.1 latest true
+        env:
+          TMPDIR: ${{ runner.temp }}
+
+      - name: Put the plugin in WordPress
+        run: |
+          echo "PLUGINS_DIR=$RUNNER_TEMP/wordpress/wp-content/plugins" >> "$GITHUB_ENV"
+          PLUGINS_DIR="$RUNNER_TEMP/wordpress/wp-content/plugins"
+          mkdir -p "$PLUGINS_DIR/praline"
+          rsync -a --exclude .git ./ "$PLUGINS_DIR/praline/"
+
+      - name: Install the standalone Markdown Alternate
+        if: ${{ matrix.markdown-alternate == 'standalone' }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/markdown-alternate.zip" "$MARKDOWN_ALTERNATE_URL"
+          echo "$MARKDOWN_ALTERNATE_SHA256  $RUNNER_TEMP/markdown-alternate.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/markdown-alternate.zip" -d "$PLUGINS_DIR"
+        env:
+          MARKDOWN_ALTERNATE_URL: https://github.com/ProgressPlanner/markdown-alternate/releases/download/v1.2.0/markdown-alternate-1.2.0.zip
+          # From the release's SHA256SUMS.txt.
+          MARKDOWN_ALTERNATE_SHA256: 210a23b9ac1067043682a73ec35d63237499a9960df228e1b1380db9675a1c71
+
+      - name: Run the end-to-end checks
+        working-directory: ${{ runner.temp }}/wordpress/wp-content/plugins/praline
+        run: tests/e2e/run.sh
+        env:
+          E2E_DB_PASSWORD: root
+          E2E_WITH_MARKDOWN_ALTERNATE: ${{ matrix.markdown-alternate == 'standalone' && '1' || '' }}
+          TMPDIR: ${{ runner.temp }}
+
+      - name: Show PHP's debug log
+        if: ${{ failure() }}
+        run: cat "$RUNNER_TEMP/praline-e2e-debug.log" || true

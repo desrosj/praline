@@ -45,7 +45,7 @@ So ◀ on a post is the older one, ▶ on the newest post goes to the front page
 - **Page Links To posts stay on this site.** [Page Links To](https://wordpress.org/plugins/page-links-to/) swaps a post's permalink for an external URL. Markdown Alternate then redirected BonBon to `/wp-admin/`, and the outline linked other sites' `.md` addresses. Here they link to the post's own `.md` on this site.
 - **No category or tag links in front matter.** Markdown Alternate linked them to `/category/x.md`, a 404.
 - **Noindexed content is skipped.** `markdown_alternate_skip_noindexed` is on (off by default in Markdown Alternate), so anything hidden from search engines with Yoast SEO gets no Markdown and no place in the outline or search. To turn it back off: `add_filter( 'markdown_alternate_skip_noindexed', '__return_false', 20 );`
-- **Left out:** Markdown Alternate's GitHub updater and its Yoast llms.txt and WooCommerce integrations. With the standalone plugin active, its own copies of those run.
+- **Left out:** Markdown Alternate's GitHub updater (`composer.json` replaces its `yahnis-elsts/plugin-update-checker` package, so Composer doesn't install it), and its Yoast llms.txt and WooCommerce integrations. With the standalone plugin active, its own copies of those run.
 
 Markdown Alternate's filters (`markdown_alternate_*`) all still work.
 
@@ -75,20 +75,32 @@ GPL-2.0-or-later.
 1. Change the `joost/markdown-alternate` version in `composer.json`.
 2. Run `composer update joost/markdown-alternate`. Composer reruns Strauss and `bin/mark-modified.php`.
 3. Read what changed: `gh api repos/ProgressPlanner/markdown-alternate/compare/v<old>...v<new>`. Look closest at `src/Router/RewriteHandler.php`, which `MarkdownRouter` extends, and at the filters this plugin uses.
-4. Run the tests below.
+4. Run the tests below. The Bundled Code workflow confirms `vendor-prefixed/` matches `composer.lock`.
 5. Commit `composer.json`, `composer.lock` and `vendor-prefixed/`.
 
 ## Tests
 
-From this folder, inside a [wordpress-develop](https://github.com/WordPress/wordpress-develop) checkout with `composer install` run there and `wp-tests-config.php` set up:
+`composer install` installs the test tools and rebuilds `vendor-prefixed/` (add `--no-scripts` to leave it as committed). Then, from this folder:
 
 ```
-composer install                    # builds vendor-prefixed/ (only needed when it's missing or changing)
-../../../../vendor/bin/phpunit      # 90 integration tests
-tests/e2e/run.sh                    # 38 HTTP checks, as BonBon asks; drops and recreates the praline_e2e database
-E2E_WITH_MARKDOWN_ALTERNATE=1 tests/e2e/run.sh   # 36 of them again with the standalone Markdown Alternate active (needs it in ../markdown-alternate)
-../../../../vendor/bin/phpcs        # WordPress coding standards
+composer test                       # 90 PHPUnit integration tests
+composer test:e2e                   # 38 HTTP checks, as BonBon asks; drops and recreates the praline_e2e database
+E2E_WITH_MARKDOWN_ALTERNATE=1 composer test:e2e   # 36 of them again with the standalone Markdown Alternate active (needs it in ../markdown-alternate)
+composer phpcs                      # WordPress coding standards
+composer phpcompat                  # PHP 8.2+ compatibility, including the bundled code
 ```
+
+PHPUnit needs the WordPress test suite. It uses `WP_TESTS_DIR` when that's set; otherwise the surrounding [wordpress-develop](https://github.com/WordPress/wordpress-develop) checkout when the plugin sits in its `src/wp-content/plugins/`; otherwise the one `bin/install-wp-tests.sh <db-name> <db-user> <db-pass> [db-host] [wp-version]` installs in the temp folder. The end-to-end checks need the plugin inside a WordPress install (`wp-content/plugins/praline`), a MySQL server and `curl`.
+
+GitHub Actions runs all of this on pull requests and on `main`:
+
+- **PHPUnit Tests:** PHP 8.2 to 8.6, each with the latest WordPress release and with nightly (trunk), plus PHP 8.2 with WordPress 6.5.
+- **End-to-end Tests:** the end-to-end checks on PHP 8.2 and 8.6 with the latest WordPress, with the bundled and with the standalone Markdown Alternate (its 1.2.0 release, checked against its SHA-256).
+- **Bundled Code:** a rebuild of `vendor-prefixed/` that must match what's committed.
+- **Coding Standards:** PHPCS and PHP compatibility, with results shown on the pull request.
+- **Lint Workflows:** actionlint and zizmor on the workflow files.
+
+Dependabot proposes GitHub Actions and Composer updates weekly. A Composer update that changes the bundled code fails the Bundled Code workflow until `vendor-prefixed/` is rebuilt (`composer prefix`) and committed.
 
 ## Packaging a release
 

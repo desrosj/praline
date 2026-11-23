@@ -1,0 +1,95 @@
+##
+# A workflow that checks the committed `vendor-prefixed/` directory matches `composer.lock`.
+#
+# `vendor-prefixed/` holds the parts of Markdown Alternate that Praline bundles, built by Strauss
+# and committed. This prevents a Composer change (a Dependabot update, for example) from being
+# merged without the rebuilt bundle.
+##
+name: Bundled Code
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Only run when changes are made to the Composer configuration or the bundled code.
+      - 'composer.*'
+      - 'bin/mark-modified.php'
+      - 'vendor-prefixed/**'
+      - '.github/workflows/bundled-code.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      # Only run when changes are made to the Composer configuration or the bundled code.
+      - 'composer.*'
+      - 'bin/mark-modified.php'
+      - 'vendor-prefixed/**'
+      - '.github/workflows/bundled-code.yml'
+  workflow_dispatch:
+
+# Cancels all previous workflow runs for pull requests that have not completed.
+concurrency:
+  # The concurrency group contains the workflow name and the branch name for pull requests
+  # or the commit hash for any other events.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+# Disable permissions for all available scopes by default.
+# Any needed permissions should be configured at the job level.
+permissions: {}
+
+jobs:
+  # Rebuilds `vendor-prefixed/` and compares it to what's committed.
+  #
+  # Only the lines each build writes differently are ignored: the date in the modification
+  # notices, the commit Composer records, and the package numbers in `installed.json`.
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Sets up PHP.
+  # - Installs Composer dependencies, which runs Strauss and `bin/mark-modified.php` to rebuild `vendor-prefixed/`.
+  # - Ensures `vendor-prefixed/` has no modified, deleted or new files.
+  bundled:
+    name: Bundled code matches composer.lock
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    env:
+      # A pull request is checked out as a merge commit on no branch, which
+      # Composer would record as the root package's version, dev-<commit>.
+      COMPOSER_ROOT_VERSION: dev-main
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      # With scripts: post-install-cmd runs Strauss and bin/mark-modified.php.
+      - name: Install Composer dependencies and rebuild vendor-prefixed/
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+
+      - name: Check vendor-prefixed/ is unchanged
+        run: |
+          # Ignored: the date in the modification notices, the root commit Composer
+          # records (NULL with COMPOSER_ROOT_VERSION), and the package numbers in
+          # installed.json.
+          git diff --exit-code \
+            -I 'Modified by Praline on [0-9-]+:' \
+            -I "'reference' => ('[0-9a-f]*'|NULL)," \
+            -I '^ +"[0-9]+": \{$' \
+            -- vendor-prefixed
+          untracked="$(git ls-files --others --exclude-standard -- vendor-prefixed)"
+          if [ -n "$untracked" ]; then
+            echo "New files in vendor-prefixed/:"
+            echo "$untracked"
+            exit 1
+          fi

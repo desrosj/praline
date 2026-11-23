@@ -6,14 +6,6 @@
 	<arg name="extensions" value="php"/>
 	<arg value="s"/>
 
-	<!-- Requires PHP: 8.2 in praline.php. -->
-	<config name="testVersion" value="8.2-"/>
-	<rule ref="PHPCompatibilityWP"/>
-	<!-- PHPCompatibility 9.3.5 predates enums and reads $this in an enum method as outside a class. -->
-	<rule ref="PHPCompatibility.Variables.ForbiddenThisUseContexts.OutsideObjectContext">
-		<exclude-pattern>src/Direction.php</exclude-pattern>
-	</rule>
-
 	<rule ref="WordPress">
 		<!-- Classes are autoloaded PSR-4 style, as in Markdown Alternate. -->
 		<exclude name="WordPress.Files.FileName"/>
