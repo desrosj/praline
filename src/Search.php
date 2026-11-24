@@ -45,7 +45,7 @@ class Search {
 			$lines[] = sprintf(
 				'%d. [%s](%s), %s',
 				$i + 1,
-				$this->escape_link_text( html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' ) ),
+				$this->link_text( get_the_title( $post ) ),
 				Servable::markdown_url( $post ),
 				get_the_date( '', $post )
 			);
@@ -88,11 +88,15 @@ class Search {
 	}
 
 	/**
-	 * Escapes the characters that would end a link's text early.
+	 * A post title as plain Markdown link text: its HTML tags removed,
+	 * its entities decoded, then backslashes before the characters that
+	 * could end the link early (\, [, ]), start HTML (<, >) or start an
+	 * entity (&), so a reader shows them as written and never as markup.
 	 *
-	 * @param string $text The link text.
+	 * @param string $title The title, as get_the_title() gives it.
 	 */
-	private function escape_link_text( string $text ): string {
-		return addcslashes( $text, '\\[]' );
+	private function link_text( string $title ): string {
+		$text = html_entity_decode( wp_strip_all_tags( $title ), ENT_QUOTES, 'UTF-8' );
+		return addcslashes( $text, '\\[]<>&' );
 	}
 }
