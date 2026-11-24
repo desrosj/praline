@@ -4,7 +4,7 @@ Tags: markdown, bonbon, opml, content negotiation, table of contents
 Requires at least: 6.5
 Tested up to: 7.2
 Requires PHP: 8.2
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,9 @@ Praline skips anything hidden from search engines. To turn that off:
 It removes what it stored: its site version, the cached table of contents and each post's cached Markdown. Deactivating it removes its `.md` rewrite rules.
 
 == Changelog ==
+
+= 0.1.1 =
+* Search results: post titles are stripped of HTML and their Markdown markup characters escaped, so a title can't put HTML in the results page.
 
 = 0.1.0 =
 * First release.

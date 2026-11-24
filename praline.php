@@ -3,7 +3,7 @@
  * Plugin Name:       Praline
  * Plugin URI:        https://github.com/desrosj/praline
  * Description:       Serves your posts and pages as Markdown for BonBon, the browser for the Markdown web, with BonBon front matter, a table of contents, site search and Content-Location. Includes parts of Markdown Alternate.
- * Version:           0.1.0
+ * Version:           0.1.1
  * Requires at least: 6.5
  * Requires PHP:      8.2
  * Author:            Jonathan Desrosiers
