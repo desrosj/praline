@@ -54,7 +54,7 @@ final readonly class Response {
 			header( $name . ': ' . $value );
 		}
 		if ( 'HEAD' !== ( isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET' ) ) {
-			echo $this->body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- OPML, JSON or Markdown, escaped where it's built.
+			echo $this->body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Not HTML: OPML serialized by DOMDocument, JSON by wp_json_encode(), Markdown with every title stripped of tags and backslash-escaped (Search::link_text()); sent with its own Content-Type and nosniff.
 		}
 		exit;
 	}

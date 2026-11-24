@@ -96,4 +96,20 @@ class SearchTest extends WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'Nothing was found', ( new Search() )->get_markdown( '  ' ) );
 	}
+
+	public function test_html_in_a_title_is_removed_and_markup_characters_escaped() {
+		$post = self::factory()->post->create(
+			array(
+				'post_title' => 'Rhubarb <img src=x onerror=alert(1)> &lt;script&gt; a <b>bold</b> [tip] Q&amp;A',
+			)
+		);
+
+		$markdown = ( new Search() )->get_markdown( 'rhubarb' );
+
+		$this->assertStringContainsString(
+			'[Rhubarb  \<script\> a bold \[tip\] Q\&A](' . $this->md_url( $post ) . ')',
+			$markdown
+		);
+		$this->assertDoesNotMatchRegularExpression( '/(?<!\\\\)</', $markdown, 'Every < in the page is backslash-escaped.' );
+	}
 }
