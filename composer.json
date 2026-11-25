@@ -14,7 +14,7 @@
         "yahnis-elsts/plugin-update-checker": "*"
     },
     "require-dev": {
-        "brianhenryie/strauss": "0.22.6",
+        "brianhenryie/strauss": "0.31.1",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
         "phpcompatibility/phpcompatibility-wp": "^2.0",
         "phpunit/phpunit": "^9.6",
