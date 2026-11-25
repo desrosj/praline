@@ -241,4 +241,106 @@ class FrontMatterTest extends WP_UnitTestCase {
 
 		$this->assertStringNotContainsString( 'urlNext:', $this->front_matter( $post ) );
 	}
+
+	/**
+	 * The front matter's lines between its delimiters, with the post's excerpt.
+	 *
+	 * @param string $excerpt The excerpt.
+	 * @return string[]
+	 */
+	private function lines_with_excerpt( string $excerpt ): array {
+		// wp_insert_post() unslashes what it's given.
+		$post = self::factory()->post->create_and_get( array( 'post_excerpt' => wp_slash( $excerpt ) ) );
+		return $this->field_lines( $post );
+	}
+
+	/**
+	 * The front matter's lines between its delimiters.
+	 *
+	 * @return string[]
+	 */
+	private function field_lines( WP_Post $post ): array {
+		$markdown = ( new ContentRenderer() )->render( $post );
+		$lines    = explode( "\n", $markdown );
+		$this->assertSame( '---', $lines[0] );
+		$end = array_search( '---', array_slice( $lines, 1 ), true );
+		$this->assertIsInt( $end, 'The front matter ends.' );
+		return array_slice( $lines, 1, $end );
+	}
+
+	/**
+	 * Asserts every front matter line is one field, in name: value form.
+	 *
+	 * @param string[] $lines The lines.
+	 */
+	private function assert_one_field_per_line( array $lines ): void {
+		foreach ( $lines as $line ) {
+			$this->assertMatchesRegularExpression( '/^(title|date|author|featured_image|pubDate|description|link|rightMarginImage|urlPrev|urlNext|extra): \S/', $line );
+		}
+	}
+
+	public function test_a_multi_line_excerpt_is_one_description_line() {
+		$lines = $this->lines_with_excerpt( "First line.\n---\nextra: value" );
+
+		$this->assert_one_field_per_line( $lines );
+		$this->assertContains( 'description: "First line. --- extra: value"', $lines );
+	}
+
+	public function test_windows_line_breaks_and_tabs_are_one_space() {
+		$lines = $this->lines_with_excerpt( "First line.\r\n\r\n\tSecond line." );
+
+		$this->assertContains( 'description: "First line. Second line."', $lines );
+	}
+
+	public function test_encoded_line_breaks_are_one_space() {
+		$lines = $this->lines_with_excerpt( 'One&#10;two&#x0A;three&NewLine;four&#9;five' );
+
+		$this->assert_one_field_per_line( $lines );
+		$this->assertContains( 'description: "One two three four five"', $lines );
+	}
+
+	public function test_unicode_line_and_paragraph_separators_are_one_space() {
+		$lines = $this->lines_with_excerpt( "One\u{2028}two\u{2029}three\u{0085}four" );
+
+		$this->assertContains( 'description: "One two three four"', $lines );
+	}
+
+	public function test_entities_and_escapes_are_kept() {
+		$lines = $this->lines_with_excerpt( 'Salt &amp; pepper, &amp;#10; as text, a \\ and a "quote".' );
+
+		$this->assertContains( 'description: "Salt & pepper, &#10; as text, a \\\\ and a \\"quote\\"."', $lines );
+	}
+
+	public function test_every_field_is_kept_on_one_line() {
+		$post = self::factory()->post->create_and_get();
+		add_filter(
+			'markdown_alternate_frontmatter_content_lines',
+			static function ( $lines ) {
+				$lines['title']['content'] = "A\ntitle";
+				$lines['extra']            = array(
+					'type'    => 'url',
+					'content' => "https://example.org/\n---",
+				);
+				$lines['items']            = array(
+					'type'  => 'array',
+					'items' => array(
+						array(
+							'name' => array(
+								'type'    => 'string',
+								'content' => "A\nname",
+							),
+						),
+					),
+				);
+				return $lines;
+			},
+			20
+		);
+
+		$lines = $this->field_lines( $post );
+
+		$this->assertContains( 'title: "A title"', $lines );
+		$this->assertContains( 'extra: "https://example.org/ ---"', $lines );
+		$this->assertContains( '  - name: "A name"', $lines );
+	}
 }
