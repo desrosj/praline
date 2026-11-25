@@ -42,10 +42,11 @@ So ◀ on a post is the older one, ▶ on the newest post goes to the front page
 ## How it differs from Markdown Alternate
 
 - **Only posts and pages are redirected.** Markdown Alternate also sends category, tag, author and date archives to `.md` addresses it has no Markdown for (404). `MarkdownRouter`, a subclass of its router, sends on only a post or page that has Markdown for anyone to read. Everything else answers with its HTML, including password-protected posts.
-- **Page Links To posts stay on this site.** [Page Links To](https://wordpress.org/plugins/page-links-to/) swaps a post's permalink for an external URL. Markdown Alternate then redirected BonBon to `/wp-admin/`, and the outline linked other sites' `.md` addresses. Here they link to the post's own `.md` on this site.
+- **Page Links To posts aren't sent to `/wp-admin/`.** [Page Links To](https://wordpress.org/plugins/page-links-to/) swaps a post's permalink for an external URL. Markdown Alternate then redirected BonBon to `/wp-admin/`, and the outline linked other sites' `.md` addresses. Here they link to the post's own `.md` on this site, and Page Links To sends the request on from there to the page it links to, as it does for a browser.
 - **No category or tag links in front matter.** Markdown Alternate linked them to `/category/x.md`, a 404.
 - **Noindexed content is skipped.** `markdown_alternate_skip_noindexed` is on (off by default in Markdown Alternate), so anything hidden from search engines with Yoast SEO gets no Markdown and no place in the outline or search. To turn it back off: `add_filter( 'markdown_alternate_skip_noindexed', '__return_false', 20 );`
 - **Only anonymous visitors share cached Markdown.** Markdown Alternate caches each post's Markdown once for everyone, but renders it as whoever is visiting, so content that differs by visitor (a Login/out block, a members-only section, a WooCommerce cart or account page) reached everyone as the first visitor saw it. `CachePolicy` turns `markdown_alternate_cache_enabled` off for a visitor who is logged in or carries a session cookie (a post password, or WooCommerce's or Easy Digital Downloads' session or cart). They get a fresh render each time, marked so HTTP and page caches don't store it. A plugin with a session cookie of its own can say so with `add_filter( 'praline_visitor_has_state', … )`.
+- **Markdown is answered after other plugins' `template_redirect` hooks.** Markdown Alternate answers `.md` addresses, `?format=markdown` and the Accept redirect on `template_redirect` at priority 1, before a plugin that restricts content there at the default 10 (a login requirement, a maintenance mode) has run, and before WordPress's own canonical redirect. `MarkdownRouter` moves all three to priority 15 (`MarkdownRouter::SERVE_PRIORITY`). Page Links To also redirects at 10, so a request for a Page Links To post's Markdown follows it to the page it links to, as a browser does. With the standalone plugin active, its own handlers keep priority 1.
 - **Left out:** Markdown Alternate's GitHub updater (`composer.json` replaces its `yahnis-elsts/plugin-update-checker` package, so Composer doesn't install it), and its Yoast llms.txt and WooCommerce integrations. With the standalone plugin active, its own copies of those run.
 
 Markdown Alternate's filters (`markdown_alternate_*`) all still work.
@@ -84,9 +85,9 @@ GPL-2.0-or-later.
 `composer install` installs the test tools and rebuilds `vendor-prefixed/` (add `--no-scripts` to leave it as committed). Then, from this folder:
 
 ```
-composer test                       # 90 PHPUnit integration tests
-composer test:e2e                   # 38 HTTP checks, as BonBon asks; drops and recreates the praline_e2e database
-E2E_WITH_MARKDOWN_ALTERNATE=1 composer test:e2e   # 36 of them again with the standalone Markdown Alternate active (needs it in ../markdown-alternate)
+composer test                       # 101 PHPUnit integration tests
+composer test:e2e                   # 45 HTTP checks, as BonBon asks; drops and recreates the praline_e2e database
+E2E_WITH_MARKDOWN_ALTERNATE=1 composer test:e2e   # 37 of them again with the standalone Markdown Alternate active (needs it in ../markdown-alternate)
 composer phpcs                      # WordPress coding standards
 composer phpcompat                  # PHP 8.2+ compatibility, including the bundled code
 ```

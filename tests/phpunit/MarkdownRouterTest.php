@@ -98,14 +98,31 @@ class MarkdownRouterTest extends WP_UnitTestCase {
 		$router = new MarkdownRouter();
 		$router->register();
 
-		$this->assertSame( 1, has_action( 'template_redirect', array( $router, 'handle_accept_negotiation' ) ) );
+		$this->assertSame( MarkdownRouter::SERVE_PRIORITY, has_action( 'template_redirect', array( $router, 'handle_accept_negotiation' ) ) );
 	}
 
-	public function test_redirects_before_page_links_to() {
-		// Page Links To sends visitors on from template_redirect at 10.
+	public function test_markdown_is_answered_after_template_redirect_hooks_at_the_default_priority() {
+		// Plugins that restrict content (a login requirement, a maintenance
+		// mode) and WordPress's redirect_canonical() run at 10.
 		$router = new MarkdownRouter();
 		$router->register();
 
-		$this->assertLessThan( 10, has_action( 'template_redirect', array( $router, 'handle_accept_negotiation' ) ) );
+		foreach ( MarkdownRouter::HANDLERS as $handler ) {
+			$this->assertGreaterThan( 10, has_action( 'template_redirect', array( $router, $handler ) ), $handler );
+		}
+	}
+
+	public function test_upstreams_handlers_keep_their_order() {
+		$router = new MarkdownRouter();
+		$router->register();
+
+		$hooked = array();
+		foreach ( $GLOBALS['wp_filter']['template_redirect']->callbacks[ MarkdownRouter::SERVE_PRIORITY ] as $callback ) {
+			if ( is_array( $callback['function'] ) && $router === $callback['function'][0] ) {
+				$hooked[] = $callback['function'][1];
+			}
+		}
+
+		$this->assertSame( MarkdownRouter::HANDLERS, $hooked );
 	}
 }

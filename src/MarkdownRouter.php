@@ -23,8 +23,38 @@ use WP_Post;
  * .md on another site, which WordPress refuses, landing on /wp-admin/.
  * Here only a post or page with Markdown for anyone to read is sent on,
  * to its .md on this site; everything else answers with its HTML.
+ *
+ * Upstream answers on template_redirect at priority 1, before plugins that
+ * restrict content there (a login requirement, a maintenance mode) at the
+ * default 10 have run. Here all three of its handlers answer at
+ * SERVE_PRIORITY instead, after those plugins and after WordPress's own
+ * canonical redirect.
  */
 class MarkdownRouter extends RewriteHandler {
+
+	/**
+	 * The template_redirect priority the Markdown is answered at: after
+	 * the default 10.
+	 */
+	const SERVE_PRIORITY = 15;
+
+	/**
+	 * Upstream's template_redirect handlers, in the order it runs them.
+	 */
+	const HANDLERS = array( 'handle_format_parameter', 'handle_accept_negotiation', 'handle_markdown_request' );
+
+	/**
+	 * Registers upstream's hooks, with its template_redirect handlers
+	 * moved from priority 1 to SERVE_PRIORITY.
+	 */
+	public function register(): void {
+		parent::register();
+
+		foreach ( self::HANDLERS as $handler ) {
+			remove_action( 'template_redirect', array( $this, $handler ), 1 );
+			add_action( 'template_redirect', array( $this, $handler ), self::SERVE_PRIORITY );
+		}
+	}
 
 	/**
 	 * Where the current request should be sent for its Markdown, or null

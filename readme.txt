@@ -64,6 +64,12 @@ Only visitors who aren't logged in and have no session cookie share the cached M
 
 `add_filter( 'praline_visitor_has_state', function ( $has_state ) { return $has_state || isset( $_COOKIE['my_session'] ); } );`
 
+= Does it work with plugins that require logging in? =
+
+Yes, when they check on `template_redirect` at the default priority (10) or earlier, or on `parse_request`, as most do. Praline answers Markdown at priority 15, after them, so a visitor they send to log in is sent to log in at the `.md` address too. A plugin that checks only inside the theme's templates doesn't apply to Markdown, which isn't rendered through a template.
+
+With the standalone Markdown Alternate active, its own handlers answer at priority 1, before those plugins.
+
 = What happens when I delete the plugin? =
 
 It removes what it stored: its site version, the cached table of contents and each post's cached Markdown. Deactivating it removes its `.md` rewrite rules.
