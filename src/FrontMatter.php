@@ -22,9 +22,11 @@ class FrontMatter {
 	 * The shape of the Markdown this plugin renders. Change it whenever the
 	 * output changes for every post, so Markdown cached before is rebuilt.
 	 * 2: no category or tag links. 3: arrows on pages, and from the newest
-	 * post on to the pages.
+	 * post on to the pages. 4: nothing cached for a logged-in visitor or one
+	 * with a session cookie (see CachePolicy), so older caches, which may
+	 * hold one, are thrown away.
 	 */
-	const FORMAT = '3';
+	const FORMAT = '4';
 
 	/**
 	 * Hooks into Markdown Alternate.
