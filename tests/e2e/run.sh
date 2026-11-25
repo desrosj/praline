@@ -122,6 +122,23 @@ h="$(headers "$BASE/2026/11/02/newer-rhubarb-post/?format=markdown")"
 h="$(headers -H "$BROWSER_ACCEPT" "$BASE/2026/11/02/newer-rhubarb-post/")"
 echo "$h" | grep -qi '^Content-Location:'; [ $? -ne 0 ]; check "no Content-Location on the HTML page" $?
 
+echo "Redirects on template_redirect run before the Markdown"
+newer_id="$(echo "$IDS" | php -r 'echo json_decode(stream_get_contents(STDIN), true)["newer"];')"
+got="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/?format=markdown")"
+[ "$got" = "200 text/markdown; charset=UTF-8" ]; check "the static front page's ?format=markdown is still Markdown ($got)" $?
+if [ -z "$WITH_MA" ]; then
+	h="$(headers "$BASE/?p=$newer_id&format=markdown")"
+	echo "$h" | grep -q '^HTTP/1.1 301'; check "WordPress's canonical redirect sends ?p= on to the post's address" $?
+	[ "$(echo "$h" | header_value Location)" = "$BASE/2026/11/02/newer-rhubarb-post/?format=markdown" ]; check "keeping ?format=markdown" $?
+	LOGIN='X-E2E-Login-Required: 1'
+	for path in /2026/11/02/newer-rhubarb-post.md /2026/11/02/newer-rhubarb-post/?format=markdown /index.md; do
+		got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "$LOGIN" -H "$BONBON_ACCEPT" "$BASE$path")"
+		[ "$got" = "302 $BASE/wp-login.php" ]; check "with a login required at priority 10, $path is sent to log in ($got)" $?
+	done
+	got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "$LOGIN" -H "$BONBON_ACCEPT" "$BASE/2026/11/02/newer-rhubarb-post/")"
+	[ "$got" = "302 $BASE/wp-login.php" ]; check "and so is BonBon's Accept: text/markdown, not sent on to the .md ($got)" $?
+fi
+
 if [ -z "$WITH_MA" ]; then
 	echo "Standalone: only this plugin is active"
 	label="the bundled Markdown Alternate"
