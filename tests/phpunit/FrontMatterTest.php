@@ -249,6 +249,9 @@ class FrontMatterTest extends WP_UnitTestCase {
 	 * @return string[]
 	 */
 	private function lines_with_excerpt( string $excerpt ): array {
+		// Saved as given, as for a user with unfiltered_html: kses changes some
+		// entities on save, and how differs between WordPress versions.
+		kses_remove_filters();
 		// wp_insert_post() unslashes what it's given.
 		$post = self::factory()->post->create_and_get( array( 'post_excerpt' => wp_slash( $excerpt ) ) );
 		return $this->field_lines( $post );
