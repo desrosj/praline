@@ -64,6 +64,7 @@ class Plugin {
 		$this->components = array(
 			new SiteVersion(),
 			new NoindexPolicy(),
+			new CachePolicy(),
 			new FrontMatter(),
 			new Router(),
 			new ContentLocation(),

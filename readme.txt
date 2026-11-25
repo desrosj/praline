@@ -58,6 +58,12 @@ Praline skips anything hidden from search engines. To turn that off:
 
 `add_filter( 'markdown_alternate_skip_noindexed', '__return_false', 20 );`
 
+= My pages show different content to different visitors. =
+
+Only visitors who aren't logged in and have no session cookie share the cached Markdown. Anyone logged in, or with a post password, WooCommerce or Easy Digital Downloads session or cart cookie, gets their Markdown made fresh each time, and it isn't stored by page caches. If another plugin gives visitors pages of their own through a cookie it sets, tell Praline when a visitor has one:
+
+`add_filter( 'praline_visitor_has_state', function ( $has_state ) { return $has_state || isset( $_COOKIE['my_session'] ); } );`
+
 = What happens when I delete the plugin? =
 
 It removes what it stored: its site version, the cached table of contents and each post's cached Markdown. Deactivating it removes its `.md` rewrite rules.

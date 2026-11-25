@@ -77,6 +77,7 @@ class PluginTest extends WP_UnitTestCase {
 		$this->assertContains( AlternateLinkHandler::class, $classes );
 		$this->assertContains( Praline\SiteVersion::class, $classes );
 		$this->assertContains( Praline\NoindexPolicy::class, $classes );
+		$this->assertContains( Praline\CachePolicy::class, $classes );
 		$this->assertContains( Praline\FrontMatter::class, $classes );
 		$this->assertContains( Praline\Router::class, $classes );
 		$this->assertContains( Praline\ContentLocation::class, $classes );
@@ -98,6 +99,7 @@ class PluginTest extends WP_UnitTestCase {
 		$classes = $this->component_classes( $plugin );
 		sort( $classes );
 		$expected = array(
+			Praline\CachePolicy::class,
 			Praline\ContentLocation::class,
 			Praline\FrontMatter::class,
 			Praline\NoindexPolicy::class,
