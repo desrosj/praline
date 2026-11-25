@@ -24,15 +24,17 @@ class FrontMatter {
 	 * 2: no category or tag links. 3: arrows on pages, and from the newest
 	 * post on to the pages. 4: nothing cached for a logged-in visitor or one
 	 * with a session cookie (see CachePolicy), so older caches, which may
-	 * hold one, are thrown away.
+	 * hold one, are thrown away. 5: every value on one line.
 	 */
-	const FORMAT = '4';
+	const FORMAT = '5';
 
 	/**
 	 * Hooks into Markdown Alternate.
 	 */
 	public function register(): void {
 		add_filter( 'markdown_alternate_frontmatter_content_lines', array( $this, 'add_fields' ), 10, 2 );
+		// Last, so it sees every field, whoever added it.
+		add_filter( 'markdown_alternate_frontmatter_content_lines', array( $this, 'keep_on_one_line' ), PHP_INT_MAX );
 		add_filter( 'markdown_alternate_cache_version', array( $this, 'cache_version' ), 10, 2 );
 		// Markdown Alternate links terms to /category/x.md, which 404s.
 		add_filter( 'markdown_alternate_frontmatter_taxonomies', '__return_empty_array' );
@@ -71,7 +73,7 @@ class FrontMatter {
 		if ( '' !== trim( $post->post_excerpt ) ) {
 			$lines['description'] = array(
 				'type'    => 'string',
-				'content' => wp_strip_all_tags( $post->post_excerpt ),
+				'content' => wp_strip_all_tags( $post->post_excerpt, true ),
 			);
 		}
 
@@ -99,6 +101,74 @@ class FrontMatter {
 		}
 
 		return $lines;
+	}
+
+	/**
+	 * Puts every value on its own one line of the front matter. Markdown
+	 * Alternate writes a value in double quotes, decoding its HTML entities
+	 * and escaping its backslashes and quotes, but leaves line breaks as
+	 * they are, so a value with one would carry on over the lines after it.
+	 *
+	 * @param mixed $lines Typed fields keyed by their YAML name.
+	 * @return mixed The fields, or what was passed when it isn't fields.
+	 */
+	public function keep_on_one_line( mixed $lines ): mixed {
+		if ( ! is_array( $lines ) ) {
+			return $lines;
+		}
+
+		foreach ( $lines as $key => $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+			if ( isset( $field['content'] ) && is_string( $field['content'] ) ) {
+				$lines[ $key ]['content'] = self::one_line( $field['content'], $field['type'] ?? '' );
+			}
+			if ( isset( $field['items'] ) && is_array( $field['items'] ) ) {
+				foreach ( $field['items'] as $i => $item ) {
+					if ( ! is_array( $item ) ) {
+						continue;
+					}
+					foreach ( $item as $item_key => $value ) {
+						if ( is_array( $value ) && isset( $value['content'] ) && is_string( $value['content'] ) ) {
+							$lines[ $key ]['items'][ $i ][ $item_key ]['content'] = self::one_line( $value['content'], $value['type'] ?? '' );
+						}
+					}
+				}
+			}
+		}
+
+		return $lines;
+	}
+
+	/**
+	 * A value with its line breaks, other control characters, and Unicode's
+	 * next line, line separator and paragraph separator each run made one
+	 * space.
+	 *
+	 * Markdown Alternate decodes a string or url value's HTML entities as it
+	 * writes it, which would turn &#10; into a line break after this. So the
+	 * entities are decoded here first, the same way, and every & left is
+	 * encoded again, for its decoding to give back exactly this.
+	 *
+	 * @param string $value The value.
+	 * @param mixed  $type  Its type: 'string', 'url', 'date', 'number' or 'boolean'.
+	 */
+	public static function one_line( string $value, mixed $type ): string {
+		// Written as it is, unquoted and undecoded.
+		$as_is = in_array( $type, array( 'date', 'number', 'boolean' ), true );
+		if ( ! $as_is ) {
+			$value = html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		}
+
+		$flat = preg_replace( '/[\x00-\x1F\x7F\x{0085}\x{2028}\x{2029}]+/u', ' ', $value );
+		if ( null === $flat ) {
+			// Not valid UTF-8: the control characters, byte by byte.
+			$flat = preg_replace( '/[\x00-\x1F\x7F]+/', ' ', $value );
+		}
+		$flat = trim( (string) $flat );
+
+		return $as_is ? $flat : str_replace( '&', '&amp;', $flat );
 	}
 
 	/**
