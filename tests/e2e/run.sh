@@ -104,15 +104,17 @@ echo "$results" | grep -q "($BASE/2026/11/02/newer-rhubarb-post.md)"; check "sea
 echo "$results" | grep -q 'protected-rhubarb-post'; [ $? -ne 0 ]; check "search leaves out the protected post" $?
 
 if [ -z "$WITH_MA" ]; then
-	echo "Archives, which Markdown Alternate has no Markdown for"
-	for path in /author/admin/ /2026/11/ /2026/11/02/; do
+	echo "Archives, which the outline, arrows and search don't cover"
+	for path in /author/admin/ /2026/11/ /2026/11/02/ /category/uncategorized/; do
 		got="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -H "$BONBON_ACCEPT" "$BASE$path")"
-		[ "$got" = "200 text/html; charset=UTF-8" ]; check "BonBon at $path gets the HTML, not a 303 to a 404 ($got)" $?
+		[ "$got" = "200 text/html; charset=UTF-8" ]; check "BonBon at $path gets the HTML ($got)" $?
 	done
+	got="$(curl -s -o /dev/null -w '%{http_code}' -H "$BONBON_ACCEPT" "$BASE/category/uncategorized.md")"
+	[ "$got" = "404" ]; check "a category archive has no .md ($got)" $?
 else
 	echo "Archives, routed by the standalone Markdown Alternate's own rules"
-	got="$(curl -s -o /dev/null -w '%{http_code}' -H "$BONBON_ACCEPT" "$BASE/2026/11/")"
-	[ "$got" = "303" ]; check "BonBon at /2026/11/ gets the standalone plugin's 303, so it is the one routing ($got)" $?
+	got="$(curl -s -o /dev/null -w '%{http_code}' -H "$BONBON_ACCEPT" "$BASE/category/uncategorized/")"
+	[ "$got" = "303" ]; check "BonBon at /category/uncategorized/ gets the standalone plugin's 303, so it is the one routing ($got)" $?
 fi
 
 echo "Content-Location"
@@ -126,18 +128,18 @@ echo "Redirects on template_redirect run before the Markdown"
 newer_id="$(echo "$IDS" | php -r 'echo json_decode(stream_get_contents(STDIN), true)["newer"];')"
 got="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/?format=markdown")"
 [ "$got" = "200 text/markdown; charset=UTF-8" ]; check "the static front page's ?format=markdown is still Markdown ($got)" $?
-if [ -z "$WITH_MA" ]; then
-	h="$(headers "$BASE/?p=$newer_id&format=markdown")"
-	echo "$h" | grep -q '^HTTP/1.1 301'; check "WordPress's canonical redirect sends ?p= on to the post's address" $?
-	[ "$(echo "$h" | header_value Location)" = "$BASE/2026/11/02/newer-rhubarb-post/?format=markdown" ]; check "keeping ?format=markdown" $?
-	LOGIN='X-E2E-Login-Required: 1'
-	for path in /2026/11/02/newer-rhubarb-post.md /2026/11/02/newer-rhubarb-post/?format=markdown /index.md; do
-		got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "$LOGIN" -H "$BONBON_ACCEPT" "$BASE$path")"
-		[ "$got" = "302 $BASE/wp-login.php" ]; check "with a login required at priority 10, $path is sent to log in ($got)" $?
-	done
-	got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "$LOGIN" -H "$BONBON_ACCEPT" "$BASE/2026/11/02/newer-rhubarb-post/")"
-	[ "$got" = "302 $BASE/wp-login.php" ]; check "and so is BonBon's Accept: text/markdown, not sent on to the .md ($got)" $?
-fi
+h="$(headers "$BASE/?p=$newer_id&format=markdown")"
+echo "$h" | grep -q '^HTTP/1.1 301'; check "WordPress's canonical redirect sends ?p= on to the post's address" $?
+[ "$(echo "$h" | header_value Location)" = "$BASE/2026/11/02/newer-rhubarb-post/?format=markdown" ]; check "keeping ?format=markdown" $?
+h="$(headers "$BASE/.well-known/toc.opml")"
+echo "$h" | header_value Cache-Control | grep -qi 'no-cache'; [ $? -ne 0 ]; check "toc.opml isn't marked uncacheable the way a 404 is" $?
+LOGIN='X-E2E-Login-Required: 1'
+for path in /2026/11/02/newer-rhubarb-post.md /2026/11/02/newer-rhubarb-post/?format=markdown /index.md /.well-known/toc.opml /.well-known/bonbon.json '/.well-known/bonbon-search?q=rhubarb'; do
+	got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "$LOGIN" -H "$BONBON_ACCEPT" "$BASE$path")"
+	[ "$got" = "302 $BASE/wp-login.php" ]; check "with a login required at priority 10, $path is sent to log in ($got)" $?
+done
+got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "$LOGIN" -H "$BONBON_ACCEPT" "$BASE/2026/11/02/newer-rhubarb-post/")"
+[ "$got" = "302 $BASE/wp-login.php" ]; check "and so is BonBon's Accept: text/markdown, not sent on to the .md ($got)" $?
 
 if [ -z "$WITH_MA" ]; then
 	echo "Standalone: only this plugin is active"

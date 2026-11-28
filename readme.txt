@@ -44,7 +44,7 @@ No. Only a request that asks for `text/markdown` is sent on to Markdown. The red
 
 = Can I keep the Markdown Alternate plugin active? =
 
-Yes, version 1.2.0 or later. Praline then leaves its bundled copy off, lets Markdown Alternate serve the Markdown, and adds BonBon's front matter, table of contents and search on top. Markdown Alternate's own rules then decide which addresses send BonBon on to Markdown, so category and date archives, password-protected posts and posts that link elsewhere with Page Links To behave as they do in Markdown Alternate. Tools → Site Health → Info → Praline says which copy is serving.
+Yes, version 1.3.0 or later. Praline then leaves its bundled copy off, lets Markdown Alternate serve the Markdown, and adds BonBon's front matter, table of contents and search on top. Markdown Alternate's own rules then decide which addresses send BonBon on to Markdown, so category and tag archives and password-protected posts behave as they do in Markdown Alternate. Tools → Site Health → Info → Praline says which copy is serving.
 
 With an older Markdown Alternate, Praline stops and asks administrators to update or deactivate it.
 
@@ -60,15 +60,13 @@ Praline skips anything hidden from search engines. To turn that off:
 
 = My pages show different content to different visitors. =
 
-Only visitors who aren't logged in and have no session cookie share the cached Markdown. Anyone logged in, or with a post password, WooCommerce or Easy Digital Downloads session or cart cookie, gets their Markdown made fresh each time, and it isn't stored by page caches. If another plugin gives visitors pages of their own through a cookie it sets, tell Praline when a visitor has one:
+Only visitors who aren't logged in and have no session cookie share the cached Markdown. Anyone logged in, or with a post password, WooCommerce or Easy Digital Downloads session or cart cookie, gets their Markdown made fresh each time, and it isn't stored by page caches. If another plugin gives visitors pages of their own through a cookie it sets, turn the cache off when a visitor has one:
 
-`add_filter( 'praline_visitor_has_state', function ( $has_state ) { return $has_state || isset( $_COOKIE['my_session'] ); } );`
+`add_filter( 'markdown_alternate_cache_enabled', function ( $enabled ) { return $enabled && ! isset( $_COOKIE['my_session'] ); } );`
 
 = Does it work with plugins that require logging in? =
 
-Yes, when they check on `template_redirect` at the default priority (10) or earlier, or on `parse_request`, as most do. Praline answers Markdown at priority 15, after them, so a visitor they send to log in is sent to log in at the `.md` address too. A plugin that checks only inside the theme's templates doesn't apply to Markdown, which isn't rendered through a template.
-
-With the standalone Markdown Alternate active, its own handlers answer at priority 1, before those plugins.
+Yes, when they check on `template_redirect` at the default priority (10) or earlier, or on `parse_request`, as most do. Praline answers Markdown at priority 15, and the table of contents, `bonbon.json` and search at 14, after them, so a visitor they send to log in is sent to log in there too. A plugin that checks only inside the theme's templates doesn't apply to these, which aren't rendered through a template.
 
 = What happens when I delete the plugin? =
 
@@ -86,5 +84,5 @@ It removes what it stored: its site version, the cached table of contents and ea
 
 Praline includes parts of these, each with its license kept beside the code in `vendor-prefixed/`:
 
-* [Markdown Alternate](https://github.com/ProgressPlanner/markdown-alternate) 1.2.0, by Joost de Valk and Progress Planner, GPL-2.0-or-later. Its namespaces are renamed with Strauss, and each bundled file says so at its top.
+* [Markdown Alternate](https://github.com/ProgressPlanner/markdown-alternate) 1.3.0, by Joost de Valk and Progress Planner, GPL-2.0-or-later. Its namespaces are renamed with Strauss, and each bundled file says so at its top.
 * [league/html-to-markdown](https://github.com/thephpleague/html-to-markdown), by Colin O'Dell and Nick Cernis, MIT.

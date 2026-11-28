@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1198a83f9e0b8196f1a7b9dc2729497b",
+    "content-hash": "090d491740cc3509417147bd5dc807e5",
     "packages": [
         {
             "name": "joost/markdown-alternate",
-            "version": "v1.2.0",
+            "version": "v1.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ProgressPlanner/markdown-alternate.git",
-                "reference": "68c1838178c2a1a858518fa2df742254713c610b"
+                "reference": "95793d91e087169a08e08612daaddd1bdfc5db7e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ProgressPlanner/markdown-alternate/zipball/68c1838178c2a1a858518fa2df742254713c610b",
-                "reference": "68c1838178c2a1a858518fa2df742254713c610b",
+                "url": "https://api.github.com/repos/ProgressPlanner/markdown-alternate/zipball/95793d91e087169a08e08612daaddd1bdfc5db7e",
+                "reference": "95793d91e087169a08e08612daaddd1bdfc5db7e",
                 "shasum": ""
             },
             "require": {
@@ -25,21 +25,31 @@
                 "php": ">=7.4",
                 "yahnis-elsts/plugin-update-checker": "^5.6"
             },
+            "require-dev": {
+                "phpstan/extension-installer": "^1.4",
+                "phpstan/phpstan": "^2.1",
+                "szepeviktor/phpstan-wordpress": "^2.0"
+            },
             "type": "wordpress-plugin",
             "autoload": {
                 "psr-4": {
                     "MarkdownAlternate\\": "src/"
                 }
             },
+            "scripts": {
+                "phpstan": [
+                    "@php ./vendor/bin/phpstan analyse --memory-limit=2048M"
+                ]
+            },
             "license": [
                 "GPL-2.0-or-later"
             ],
             "description": "WordPress plugin providing markdown versions of content via .md URLs",
             "support": {
-                "source": "https://github.com/ProgressPlanner/markdown-alternate/tree/v1.2.0",
+                "source": "https://github.com/ProgressPlanner/markdown-alternate/tree/v1.3.0",
                 "issues": "https://github.com/ProgressPlanner/markdown-alternate/issues"
             },
-            "time": "2026-11-17T10:46:27+00:00"
+            "time": "2026-11-26T14:40:32+00:00"
         },
         {
             "name": "league/html-to-markdown",

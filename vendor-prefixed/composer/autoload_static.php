@@ -60,12 +60,18 @@ class ComposerStaticInit67c6791836bc042403dd9047add34f4b
         'Praline\\Vendor\\League\\HTMLToMarkdown\\PrecedingMarkdown' => __DIR__ . '/..' . '/league/html-to-markdown/src/PrecedingMarkdown.php',
         'Praline\\Vendor\\League\\HTMLToMarkdown\\RawHtml' => __DIR__ . '/..' . '/league/html-to-markdown/src/RawHtml.php',
         'Praline\\Vendor\\League\\HTMLToMarkdown\\SiblingPositionCache' => __DIR__ . '/..' . '/league/html-to-markdown/src/SiblingPositionCache.php',
+        'Praline\\Vendor\\MarkdownAlternate\\Converter\\EmbedConverter' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Converter/EmbedConverter.php',
+        'Praline\\Vendor\\MarkdownAlternate\\Converter\\ImageConverter' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Converter/ImageConverter.php',
         'Praline\\Vendor\\MarkdownAlternate\\Converter\\MarkdownConverter' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Converter/MarkdownConverter.php',
         'Praline\\Vendor\\MarkdownAlternate\\Discovery\\AlternateLinkHandler' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Discovery/AlternateLinkHandler.php',
+        'Praline\\Vendor\\MarkdownAlternate\\Output\\CachePolicy' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Output/CachePolicy.php',
         'Praline\\Vendor\\MarkdownAlternate\\Output\\ContentRenderer' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Output/ContentRenderer.php',
+        'Praline\\Vendor\\MarkdownAlternate\\Output\\MarkdownDocument' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Output/MarkdownDocument.php',
+        'Praline\\Vendor\\MarkdownAlternate\\Output\\TermRenderer' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Output/TermRenderer.php',
         'Praline\\Vendor\\MarkdownAlternate\\PostTypeSupport' => __DIR__ . '/..' . '/joost/markdown-alternate/src/PostTypeSupport.php',
         'Praline\\Vendor\\MarkdownAlternate\\Router\\RewriteHandler' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Router/RewriteHandler.php',
         'Praline\\Vendor\\MarkdownAlternate\\Router\\UrlConverter' => __DIR__ . '/..' . '/joost/markdown-alternate/src/Router/UrlConverter.php',
+        'Praline\\Vendor\\MarkdownAlternate\\TaxonomySupport' => __DIR__ . '/..' . '/joost/markdown-alternate/src/TaxonomySupport.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

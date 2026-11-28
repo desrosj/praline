@@ -1,14 +1,15 @@
 <?php
 /**
- * Only a visitor with nothing of their own shares the cached Markdown.
+ * Only a visitor with nothing of their own shares the cached Markdown. This
+ * is Markdown Alternate's own policy since 1.3.0 (Output\CachePolicy); these
+ * keep it so through updates of the bundled copy.
  *
  * @package Praline
  */
 
-use Praline\CachePolicy;
 use Praline\Vendor\MarkdownAlternate\Output\ContentRenderer;
 
-class CachePolicyTest extends WP_UnitTestCase {
+class SharedCacheTest extends WP_UnitTestCase {
 
 	/**
 	 * The cookies before the test.
@@ -20,9 +21,6 @@ class CachePolicyTest extends WP_UnitTestCase {
 	public function set_up() {
 		parent::set_up();
 		$this->cookies = $_COOKIE;
-
-		remove_all_filters( 'markdown_alternate_cache_enabled' );
-		( new CachePolicy() )->register();
 
 		// Content that is different for each visitor.
 		add_shortcode(
@@ -41,10 +39,13 @@ class CachePolicyTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Whether Markdown Alternate may use its shared cache for this request.
+	 * Whether Markdown Alternate stores a post's Markdown in its shared cache
+	 * for this request.
 	 */
 	private function cache_enabled(): bool {
-		return (bool) apply_filters( 'markdown_alternate_cache_enabled', true, self::factory()->post->create_and_get() );
+		$post = self::factory()->post->create_and_get();
+		( new ContentRenderer() )->render( $post );
+		return false !== get_transient( 'md_alt_cache_' . $post->ID );
 	}
 
 	private function log_in(): WP_User {
@@ -89,16 +90,16 @@ class CachePolicyTest extends WP_UnitTestCase {
 		$this->assertTrue( $this->cache_enabled() );
 	}
 
-	public function test_a_site_can_say_a_visitor_has_state() {
+	public function test_a_site_can_turn_caching_off_for_its_own_session() {
 		wp_set_current_user( 0 );
-		add_filter( 'praline_visitor_has_state', '__return_true' );
+		add_filter( 'markdown_alternate_cache_enabled', '__return_false' );
 
 		$this->assertFalse( $this->cache_enabled() );
 	}
 
-	public function test_it_never_turns_caching_back_on() {
-		wp_set_current_user( 0 );
-		add_filter( 'markdown_alternate_cache_enabled', '__return_false', 5 );
+	public function test_a_filter_cannot_turn_caching_back_on_for_a_logged_in_visitor() {
+		$this->log_in();
+		add_filter( 'markdown_alternate_cache_enabled', '__return_true', PHP_INT_MAX );
 
 		$this->assertFalse( $this->cache_enabled() );
 	}

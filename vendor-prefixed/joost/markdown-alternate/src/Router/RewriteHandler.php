@@ -1,5 +1,5 @@
 <?php
-/* Modified by Praline on 2026-11-22: namespaces prefixed with Strauss. Original: https://github.com/ProgressPlanner/markdown-alternate (GPL-2.0-or-later). */
+/* Modified by Praline on 2026-11-28: namespaces prefixed with Strauss. Original: https://github.com/ProgressPlanner/markdown-alternate (GPL-2.0-or-later). */
 /**
  * URL rewrite handler for markdown requests.
  *
@@ -9,8 +9,12 @@
 namespace Praline\Vendor\MarkdownAlternate\Router;
 
 use WP_Post;
+use WP_Term;
 use Praline\Vendor\MarkdownAlternate\Output\ContentRenderer;
+use Praline\Vendor\MarkdownAlternate\Output\TermRenderer;
+use Praline\Vendor\MarkdownAlternate\Output\CachePolicy;
 use Praline\Vendor\MarkdownAlternate\PostTypeSupport;
+use Praline\Vendor\MarkdownAlternate\TaxonomySupport;
 
 /**
  * Handles URL rewriting and markdown request processing.
@@ -23,6 +27,13 @@ class RewriteHandler {
      * @var WP_Post|null
      */
     private ?WP_Post $markdown_post = null;
+
+	/**
+	 * Cached term for a term archive markdown request.
+	 *
+	 * @var WP_Term|null
+	 */
+	private ?WP_Term $markdown_term = null;
 
     /**
      * Cached ContentRenderer instance.
@@ -43,10 +54,11 @@ class RewriteHandler {
         add_action('parse_request', [$this, 'parse_markdown_url']);
         // Prevent canonical redirect for .md URLs
         add_filter('redirect_canonical', [$this, 'prevent_markdown_redirect'], 10, 2);
-        // Order: format parameter -> Accept negotiation -> markdown request (URL wins first)
-        add_action('template_redirect', [$this, 'handle_format_parameter'], 1);
-        add_action('template_redirect', [$this, 'handle_accept_negotiation'], 1);
-        add_action('template_redirect', [$this, 'handle_markdown_request'], 1);
+		// Run after default-priority access checks and canonical redirects.
+		// Keep format -> Accept -> .md ordering; explicit .md URLs win.
+		add_action( 'template_redirect', array( $this, 'handle_format_parameter' ), 15 );
+		add_action( 'template_redirect', array( $this, 'handle_accept_negotiation' ), 15 );
+		add_action( 'template_redirect', array( $this, 'handle_markdown_request' ), 15 );
     }
 
     /**
@@ -147,7 +159,14 @@ class RewriteHandler {
             }
 
             if (!$post_id) {
-                return; // Let WordPress show its normal 404
+				// Not a post: try a term archive of a supported taxonomy.
+				$term = $this->find_term( $path_without_md );
+				if ( $term ) {
+					$this->markdown_term                = $term;
+					$wp->query_vars['markdown_request'] = '1';
+					unset( $wp->query_vars['pagename'] );
+				}
+				return; // Otherwise let WordPress show its normal 404.
             }
         }
 
@@ -174,6 +193,95 @@ class RewriteHandler {
         // Remove incorrect pagename that the rewrite rule may have set
         unset($wp->query_vars['pagename']);
     }
+
+	/**
+	 * Find the term of a supported taxonomy whose archive URL is this path.
+	 *
+	 * The last path segment is the term slug; the match is confirmed against
+	 * the term's own archive link, so nested terms, custom taxonomy bases and
+	 * multilingual URLs resolve to the right term.
+	 *
+	 * @param string $path_without_md Request path, including any home subdirectory, without the leading slash and .md extension.
+	 * @return WP_Term|null The term, or null if no supported term archive has this URL.
+	 */
+	private function find_term( string $path_without_md ): ?WP_Term {
+		$taxonomies = TaxonomySupport::get_supported_taxonomies();
+		if ( ! $taxonomies ) {
+			return null;
+		}
+		$segments = explode( '/', trim( $path_without_md, '/' ) );
+		$slug     = sanitize_title( rawurldecode( (string) end( $segments ) ) );
+		if ( '' === $slug ) {
+			return null;
+		}
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $taxonomies,
+				'slug'       => $slug,
+				'hide_empty' => false,
+			)
+		);
+		if ( ! is_array( $terms ) ) {
+			return null;
+		}
+		// REQUEST_URI already includes the home path on subdirectory installations.
+		$requested = untrailingslashit( rawurldecode( '/' . $path_without_md ) );
+		foreach ( $terms as $term ) {
+			$link = get_term_link( $term );
+			if ( is_wp_error( $link ) ) {
+				continue;
+			}
+			if ( untrailingslashit( rawurldecode( (string) wp_parse_url( $link, PHP_URL_PATH ) ) ) === $requested ) {
+				return $term;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Validate a term archive for markdown output.
+	 *
+	 * @param WP_Term $term The term to validate.
+	 * @return bool True if valid for markdown output, false otherwise.
+	 */
+	private function validate_term_for_markdown( WP_Term $term ): bool {
+		return TaxonomySupport::is_supported( $term->taxonomy ) && ! TaxonomySupport::should_skip_noindexed( $term );
+	}
+
+	/**
+	 * Serve the markdown response for a term archive.
+	 *
+	 * @param WP_Term $term The term to serve.
+	 * @return void
+	 */
+	private function serve_term_response( WP_Term $term ): void {
+		/**
+		 * Filters whether a term archive's markdown may be stored by shared caches.
+		 *
+		 * Disable for archives whose output depends on the current customer,
+		 * such as product prices.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param bool    $enabled Whether output may be cached. Default true.
+		 * @param WP_Term $term    The term being served.
+		 */
+		if ( ! CachePolicy::is_public_request() || ! apply_filters( 'markdown_alternate_term_cache_enabled', true, $term ) ) {
+			nocache_headers();
+			header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
+			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+				define( 'DONOTCACHEPAGE', true );
+			}
+			do_action( 'litespeed_control_set_nocache', 'Customer-dependent Markdown output' );
+		}
+
+		$markdown = ( new TermRenderer() )->render( $term );
+		$link     = get_term_link( $term );
+
+		$this->send_markdown_headers( is_wp_error( $link ) ? '' : $link, $markdown );
+		echo $markdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markdown response, like posts.
+		exit;
+	}
 
     /**
      * Add custom query vars.
@@ -237,7 +345,7 @@ class RewriteHandler {
         }
 
 		// Keep customer-dependent output out of HTTP and WordPress page caches too.
-		if ( ! apply_filters( 'markdown_alternate_cache_enabled', true, $post ) ) {
+		if ( ! CachePolicy::is_enabled( $post ) ) {
 			nocache_headers();
 			header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
 			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
@@ -268,6 +376,14 @@ class RewriteHandler {
 		}
 
 		if ( get_query_var( 'format' ) !== 'markdown' ) {
+			return;
+		}
+
+		if ( is_category() || is_tag() || is_tax() ) {
+			$term = get_queried_object();
+			if ( $term instanceof WP_Term && $this->validate_term_for_markdown( $term ) ) {
+				$this->serve_term_response( $term );
+			}
 			return;
 		}
 
@@ -358,6 +474,18 @@ class RewriteHandler {
             exit;
         }
 
+		// A term archive found by parse_markdown_url().
+		if ( $this->markdown_term instanceof WP_Term ) {
+			if ( ! $this->validate_term_for_markdown( $this->markdown_term ) ) {
+				global $wp_query;
+				$wp_query->set_404();
+				status_header( 404 );
+				nocache_headers();
+				return;
+			}
+			$this->serve_term_response( $this->markdown_term );
+		}
+
         // Use cached post from parse_markdown_url (Nginx) or queried object (Apache).
         $post = $this->markdown_post ?? get_queried_object();
 
@@ -392,6 +520,17 @@ class RewriteHandler {
      * @return void
      */
     private function set_response_headers(WP_Post $post, string $markdown): void {
+		$this->send_markdown_headers( (string) get_permalink( $post ), $markdown );
+	}
+
+	/**
+	 * Send the markdown response headers.
+	 *
+	 * @param string $canonical_url The HTML URL of the content.
+	 * @param string $markdown      The rendered markdown content.
+	 * @return void
+	 */
+	private function send_markdown_headers( string $canonical_url, string $markdown ): void {
         // Override any 404 status WordPress may have set.
         status_header(200);
 
@@ -400,8 +539,9 @@ class RewriteHandler {
         // Ensures caches distinguish HTML and markdown responses for the same URL.
         header('Vary: Accept');
 
-        $canonical_url = get_permalink($post);
-        header('Link: <' . $canonical_url . '>; rel="canonical"');
+		if ( '' !== $canonical_url ) {
+			header( 'Link: <' . $canonical_url . '>; rel="canonical"' );
+		}
 
         // Prevent MIME sniffing.
         header('X-Content-Type-Options: nosniff');
@@ -436,6 +576,12 @@ class RewriteHandler {
 				return;
 			}
 		}
+		if ( is_category() || is_tag() || is_tax() ) {
+			$queried = get_queried_object();
+			if ( ! $queried instanceof WP_Term || ! $this->validate_term_for_markdown( $queried ) ) {
+				return;
+			}
+		}
 
         $canonical = $this->get_current_canonical_url();
         if (!$canonical) {
@@ -467,14 +613,13 @@ class RewriteHandler {
     }
 
 
-    /**
-     * Get canonical URL for current content.
-     *
-     * Supports singular posts/pages, category/tag archives, author archives,
-     * and date archives.
-     *
-     * @return string|null The canonical URL or null if not determinable.
-     */
+	/**
+	 * Get the canonical URL for content with a supported Markdown route.
+	 *
+	 * Author and date archives have no Markdown renderer, so they retain HTML.
+	 *
+	 * @return string|null The canonical URL, or null for unsupported content.
+	 */
     private function get_current_canonical_url(): ?string {
         // Singular posts and pages
         if (is_singular()) {
@@ -490,24 +635,6 @@ class RewriteHandler {
             }
             $link = get_term_link($term);
             return is_wp_error($link) ? null : $link;
-        }
-
-        // Author archives
-        if (is_author()) {
-            return get_author_posts_url(get_queried_object_id());
-        }
-
-        // Date archives
-        if (is_date()) {
-            if (is_year()) {
-                return get_year_link(get_query_var('year'));
-            }
-            if (is_month()) {
-                return get_month_link(get_query_var('year'), get_query_var('monthnum'));
-            }
-            if (is_day()) {
-                return get_day_link(get_query_var('year'), get_query_var('monthnum'), get_query_var('day'));
-            }
         }
 
         return null;
