@@ -32,7 +32,7 @@ class Plugin {
 	/**
 	 * The oldest standalone Markdown Alternate whose filters this plugin uses.
 	 */
-	const MINIMUM_STANDALONE_VERSION = '1.2.0';
+	const MINIMUM_STANDALONE_VERSION = '1.3.0';
 
 	/**
 	 * The started parts.
@@ -64,7 +64,6 @@ class Plugin {
 		$this->components = array(
 			new SiteVersion(),
 			new NoindexPolicy(),
-			new CachePolicy(),
 			new FrontMatter(),
 			new Router(),
 			new ContentLocation(),

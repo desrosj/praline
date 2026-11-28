@@ -1,7 +1,7 @@
 <?php
 /**
  * Starting up: the bundled Markdown Alternate and this plugin's parts; or,
- * with the standalone Markdown Alternate 1.2.0 or later active, only this
+ * with the standalone Markdown Alternate 1.3.0 or later active, only this
  * plugin's parts on top of it; or, with an older one, nothing but a notice.
  *
  * @package Praline
@@ -77,7 +77,6 @@ class PluginTest extends WP_UnitTestCase {
 		$this->assertContains( AlternateLinkHandler::class, $classes );
 		$this->assertContains( Praline\SiteVersion::class, $classes );
 		$this->assertContains( Praline\NoindexPolicy::class, $classes );
-		$this->assertContains( Praline\CachePolicy::class, $classes );
 		$this->assertContains( Praline\FrontMatter::class, $classes );
 		$this->assertContains( Praline\Router::class, $classes );
 		$this->assertContains( Praline\ContentLocation::class, $classes );
@@ -93,13 +92,12 @@ class PluginTest extends WP_UnitTestCase {
 
 	public function test_with_standalone_markdown_alternate_it_starts_only_its_own_parts() {
 		$before = $this->bundled_markdown_alternate_callbacks();
-		$plugin = new Plugin( '1.2.0' );
+		$plugin = new Plugin( '1.3.0' );
 		$plugin->boot();
 
 		$classes = $this->component_classes( $plugin );
 		sort( $classes );
 		$expected = array(
-			Praline\CachePolicy::class,
 			Praline\ContentLocation::class,
 			Praline\FrontMatter::class,
 			Praline\NoindexPolicy::class,
@@ -128,7 +126,7 @@ class PluginTest extends WP_UnitTestCase {
 	}
 
 	public function test_with_an_older_standalone_markdown_alternate_it_stands_down_with_a_notice() {
-		$plugin = new Plugin( '1.1.0' );
+		$plugin = new Plugin( '1.2.0' );
 		$plugin->boot();
 
 		$this->assertSame( array(), $plugin->get_components() );
@@ -139,7 +137,7 @@ class PluginTest extends WP_UnitTestCase {
 		remove_all_actions( 'template_redirect' );
 		remove_all_actions( 'parse_request' );
 
-		( new Plugin( '1.1.0' ) )->boot();
+		( new Plugin( '1.2.0' ) )->boot();
 
 		$this->assertFalse( has_action( 'template_redirect' ) );
 		$this->assertFalse( has_action( 'parse_request' ) );
@@ -154,16 +152,16 @@ class PluginTest extends WP_UnitTestCase {
 	}
 
 	public function test_the_notice_says_to_update_or_deactivate_markdown_alternate() {
-		$notice = $this->notice( new Plugin( '1.1.0' ) );
+		$notice = $this->notice( new Plugin( '1.2.0' ) );
 
-		$this->assertStringContainsString( 'Markdown Alternate 1.1.0 is older than 1.2.0', $notice );
+		$this->assertStringContainsString( 'Markdown Alternate 1.2.0 is older than 1.3.0', $notice );
 		$this->assertStringContainsString( 'update or deactivate', $notice );
 		$this->assertStringContainsString( 'notice-warning', $notice );
 	}
 
 	public function test_the_notice_is_only_for_people_who_manage_plugins() {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
-		$plugin = new Plugin( '1.1.0' );
+		$plugin = new Plugin( '1.2.0' );
 
 		ob_start();
 		$plugin->standalone_too_old_notice();
@@ -172,7 +170,7 @@ class PluginTest extends WP_UnitTestCase {
 	}
 
 	public function test_with_an_older_standalone_markdown_alternate_site_health_says_it_has_stopped() {
-		( new Plugin( '1.1.0' ) )->boot();
+		( new Plugin( '1.2.0' ) )->boot();
 
 		$this->assertStringContainsString( 'stopped', $this->site_health_markdown() );
 	}

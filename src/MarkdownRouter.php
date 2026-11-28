@@ -17,43 +17,23 @@ use WP_Post;
 
 /**
  * Upstream serves .md addresses and ?format=markdown, and this keeps all
- * of that. Only its Accept redirect is replaced, because upstream also
- * sends archives to .md addresses it has no Markdown for (404), sends
- * password-protected posts to a 403, and sends Page Links To posts to a
- * .md on another site, which WordPress refuses, landing on /wp-admin/.
- * Here only a post or page with Markdown for anyone to read is sent on,
- * to its .md on this site; everything else answers with its HTML.
+ * of that. Only its Accept redirect is replaced, because upstream sends on
+ * any singular address: a password-protected post to a .md that answers
+ * 403, and an attachment or another post type without Markdown to one
+ * that 404s. Here only a post or page with Markdown for anyone to read is
+ * sent on, to its .md on this site; everything else answers with its HTML.
  *
- * Upstream answers on template_redirect at priority 1, before plugins that
- * restrict content there (a login requirement, a maintenance mode) at the
- * default 10 have run. Here all three of its handlers answer at
- * SERVE_PRIORITY instead, after those plugins and after WordPress's own
- * canonical redirect.
+ * Upstream also serves category and tag archives as Markdown. They're left
+ * out here: the outline, the arrows and search cover posts and pages only.
  */
 class MarkdownRouter extends RewriteHandler {
 
 	/**
-	 * The template_redirect priority the Markdown is answered at: after
-	 * the default 10.
-	 */
-	const SERVE_PRIORITY = 15;
-
-	/**
-	 * Upstream's template_redirect handlers, in the order it runs them.
-	 */
-	const HANDLERS = array( 'handle_format_parameter', 'handle_accept_negotiation', 'handle_markdown_request' );
-
-	/**
-	 * Registers upstream's hooks, with its template_redirect handlers
-	 * moved from priority 1 to SERVE_PRIORITY.
+	 * Registers upstream's hooks, with no taxonomy archives served.
 	 */
 	public function register(): void {
 		parent::register();
-
-		foreach ( self::HANDLERS as $handler ) {
-			remove_action( 'template_redirect', array( $this, $handler ), 1 );
-			add_action( 'template_redirect', array( $this, $handler ), self::SERVE_PRIORITY );
-		}
+		add_filter( 'markdown_alternate_supported_taxonomies', '__return_empty_array' );
 	}
 
 	/**
@@ -84,7 +64,7 @@ class MarkdownRouter extends RewriteHandler {
 
 	/**
 	 * Sends the request on to its Markdown with a 303, keeping upstream's
-	 * cache handling (Markdown Alternate 1.2.0, RewriteHandler.php:445-455).
+	 * cache handling (Markdown Alternate 1.3.0, RewriteHandler.php:597-611).
 	 */
 	public function handle_accept_negotiation(): void {
 		$url = $this->get_redirect_url();

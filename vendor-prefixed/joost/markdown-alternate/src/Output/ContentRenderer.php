@@ -1,5 +1,5 @@
 <?php
-/* Modified by Praline on 2026-11-22: namespaces prefixed with Strauss. Original: https://github.com/ProgressPlanner/markdown-alternate (GPL-2.0-or-later). */
+/* Modified by Praline on 2026-11-28: namespaces prefixed with Strauss. Original: https://github.com/ProgressPlanner/markdown-alternate (GPL-2.0-or-later). */
 /**
  * Content renderer for markdown output.
  *
@@ -10,6 +10,7 @@ namespace Praline\Vendor\MarkdownAlternate\Output;
 
 use WP_Post;
 use Praline\Vendor\MarkdownAlternate\Converter\MarkdownConverter;
+use Praline\Vendor\MarkdownAlternate\TaxonomySupport;
 
 /**
  * Renders WordPress posts as markdown with YAML frontmatter.
@@ -20,6 +21,13 @@ use Praline\Vendor\MarkdownAlternate\Converter\MarkdownConverter;
  * - HTML to markdown conversion
  */
 class ContentRenderer {
+
+	/**
+	 * Cache schema; older entries may contain another visitor's output.
+	 *
+	 * @var int
+	 */
+	private const CACHE_SCHEMA = 2;
 
     /**
      * The HTML to Markdown converter.
@@ -45,18 +53,7 @@ class ContentRenderer {
 	 */
 	public function render( WP_Post $post ): string {
 		$transient_key = 'md_alt_cache_' . $post->ID;
-		/**
-		 * Filters whether rendered output can use shared caching.
-		 *
-		 * Disable for content whose output depends on the current customer.
-		 * The HTTP router also uses this to send private, no-store headers.
-		 *
-		 * @since 1.2.0
-		 *
-		 * @param bool    $enabled Whether output may be cached. Default true.
-		 * @param WP_Post $post    The post being rendered.
-		 */
-		$cache_enabled = (bool) apply_filters( 'markdown_alternate_cache_enabled', true, $post );
+		$cache_enabled = CachePolicy::is_enabled( $post );
 		$cached_data   = $cache_enabled ? get_transient( $transient_key ) : false;
 
 		/**
@@ -74,7 +71,8 @@ class ContentRenderer {
 		$cache_version = (string) apply_filters( 'markdown_alternate_cache_version', '', $post );
 
 		if ( is_array( $cached_data )
-			&& isset( $cached_data['markdown'], $cached_data['modified'], $cached_data['version'] )
+			&& isset( $cached_data['markdown'], $cached_data['modified'], $cached_data['version'], $cached_data['schema'] )
+			&& self::CACHE_SCHEMA === $cached_data['schema']
 			&& $post->post_modified === $cached_data['modified']
 			&& $cache_version === $cached_data['version']
 		) {
@@ -105,7 +103,7 @@ class ContentRenderer {
 		$default_sections = array(
 			'title'   => array(
 				'priority' => 0,
-				'markdown' => '# ' . $this->decode_entities( $title ),
+				'markdown' => '# ' . MarkdownDocument::decode_entities( $title ),
 			),
 			'content' => array(
 				'priority' => 100,
@@ -149,6 +147,7 @@ class ContentRenderer {
 			set_transient(
 				$transient_key,
 				array(
+					'schema'   => self::CACHE_SCHEMA,
 					'markdown' => $output,
 					'modified' => $post->post_modified,
 					'version'  => $cache_version,
@@ -167,27 +166,7 @@ class ContentRenderer {
 	 * @return string Markdown body.
 	 */
 	private function render_sections( array $sections ): string {
-		$ordered = array();
-		foreach ( $sections as $section ) {
-			if ( ! is_array( $section ) || ! isset( $section['markdown'] )
-				|| ! is_string( $section['markdown'] ) || trim( $section['markdown'] ) === ''
-			) {
-				continue;
-			}
-			$ordered[] = array(
-				'priority' => isset( $section['priority'] ) ? (int) $section['priority'] : 100,
-				'position' => count( $ordered ),
-				'markdown' => $section['markdown'],
-			);
-		}
-		usort(
-			$ordered,
-			static function ( $a, $b ) {
-				$priority_order = $a['priority'] <=> $b['priority'];
-				return 0 !== $priority_order ? $priority_order : ( $a['position'] <=> $b['position'] );
-			}
-		);
-		return implode( "\n\n", array_column( $ordered, 'markdown' ) );
+		return MarkdownDocument::render_sections( $sections );
 	}
 
 	/**
@@ -256,6 +235,31 @@ class ContentRenderer {
 		foreach ( $taxonomies as $taxonomy => $key ) {
 			$terms = get_the_terms( $post->ID, $taxonomy );
 			if ( $terms && ! is_wp_error( $terms ) ) {
+				/**
+				 * Filters the terms included in a post's taxonomy frontmatter.
+				 *
+				 * Return an empty array to omit this taxonomy's field. This does
+				 * not disable term archives or exclude posts from those archives.
+				 * Runs only when the Markdown document is regenerated.
+				 *
+				 * @since 1.3.0
+				 *
+				 * @param mixed   $terms    Array of WP_Term objects; non-arrays keep the assigned terms.
+				 * @param string  $taxonomy Taxonomy name.
+				 * @param WP_Post $post     The post being rendered.
+				 */
+				$filtered_terms = apply_filters( 'markdown_alternate_frontmatter_terms', $terms, $taxonomy, $post );
+				if ( is_array( $filtered_terms ) ) {
+					$terms = array_filter(
+						$filtered_terms,
+						static function ( $term ) {
+							return $term instanceof \WP_Term;
+						}
+					);
+				}
+				if ( empty( $terms ) ) {
+					continue;
+				}
 				$content_lines[ $key ]['type']  = 'array';
 				$content_lines[ $key ]['items'] = array();
 				foreach ( $terms as $term ) {
@@ -266,7 +270,7 @@ class ContentRenderer {
 						),
 						'url'  => array(
 							'type'    => 'url',
-							'content' => $this->get_term_markdown_url( $term ),
+							'content' => $this->get_term_markdown_url( $term, $taxonomy ),
 						),
 					);
 				}
@@ -276,8 +280,9 @@ class ContentRenderer {
 		/**
 		 * Filters typed frontmatter fields before YAML serialization.
 		 *
-		 * Scalar fields contain type and content. Array fields contain type
-		 * 'array' and items, a list of maps whose values are scalar fields.
+		 * Scalar fields contain type (string, url, date, number or boolean) and
+		 * content. Array fields contain type 'array' and items, a list of maps
+		 * whose values are scalar fields.
 		 * Pass unescaped values; strings and URLs are escaped once below.
 		 *
 		 * @since 1.2.0
@@ -291,38 +296,7 @@ class ContentRenderer {
 		}
 
 		// Add content lines to lines.
-		foreach ( $content_lines as $key => $value ) {
-			if ( ! is_array( $value ) || empty( $value['type'] ) ) {
-				// Skip empty type values.
-				continue;
-			}
-			if ( 'array' === $value['type'] && isset( $value['items'] ) && is_array( $value['items'] ) ) {
-				// Multiple items (like categories and tags).
-				$lines[] = $key . ':';
-				foreach ( $value['items'] as $item ) {
-					if ( ! is_array( $item ) ) {
-						continue;
-					}
-					$i = 0;
-					foreach ( $item as $item_key => $item_value ) {
-						if ( ! is_array( $item_value ) || empty( $item_value['type'] ) || ! isset( $item_value['content'] ) || ! is_scalar( $item_value['content'] ) ) {
-							// Skip empty type values or if content is not set.
-							continue;
-						}
-						$item_value = $this->format_yaml_value( $item_value['content'], $item_value['type'] );
-						if ( 0 === $i ) {
-							$lines[] = '  - ' . $item_key . ': ' . $item_value;
-						} else {
-							$lines[] = '    ' . $item_key . ': ' . $item_value;
-						}
-						++$i;
-					}
-				}
-			} elseif ( isset( $value['content'] ) && is_scalar( $value['content'] ) ) {
-				// Single content line (like title, date, author, featured_image).
-				$lines[] = $key . ': ' . $this->format_yaml_value( $value['content'], $value['type'] );
-			}
-		}
+		$lines = array_merge( $lines, MarkdownDocument::frontmatter_lines( $content_lines ) );
 
 		/**
 		 * Filters serialized YAML lines before the closing delimiter is added.
@@ -347,64 +321,26 @@ class ContentRenderer {
 	}
 
 	/**
-	 * Format a value for YAML output based on its type.
+	 * Get the frontmatter URL for a term (category or tag).
 	 *
-	 * @param string $value The value to format.
-	 * @param string $type The type of the value (e.g. 'string', 'date', 'url', 'number', 'boolean').
-	 * @return string The formatted value for YAML.
+	 * Terms of taxonomies whose archives are served as markdown link to their
+	 * .md URL; other terms link to their HTML archive, which exists. URLs are
+	 * absolute, like the links in the body, so the frontmatter still resolves
+	 * when it is read on its own.
+	 *
+	 * @param \WP_Term $term     The term object.
+	 * @param string   $taxonomy The term's taxonomy.
+	 * @return string The absolute URL for the term.
 	 */
-	private function format_yaml_value( $value, $type ) {
-		switch ( $type ) {
-			case 'boolean':
-				return $value ? 'true' : 'false';
-			case 'date':
-			case 'number':
-				return $value;
-			default:
-				return '"' . $this->escape_yaml( $value ) . '"';
+	private function get_term_markdown_url( \WP_Term $term, string $taxonomy ): string {
+		$url = get_term_link( $term );
+		if ( is_wp_error( $url ) ) {
+			return '';
 		}
+		// Append .md when the archive is served as markdown.
+		return TaxonomySupport::is_supported( $taxonomy ) && ! TaxonomySupport::should_skip_noindexed( $term )
+			? rtrim( $url, '/' ) . '.md' : $url;
 	}
-
-    /**
-     * Get the markdown URL for a term (category or tag).
-     *
-     * @param \WP_Term $term The term object.
-     * @return string The markdown URL for the term.
-     */
-    private function get_term_markdown_url(\WP_Term $term): string {
-        $url = get_term_link($term);
-        if (is_wp_error($url)) {
-            return '';
-        }
-        // Convert to relative URL and append .md
-        $path = wp_parse_url($url, PHP_URL_PATH);
-        return rtrim($path, '/') . '.md';
-    }
-
-    /**
-     * Escape a string for use in YAML.
-     *
-     * @param string $value The value to escape.
-     * @return string The escaped value.
-     */
-    private function escape_yaml(string $value): string {
-        $value = $this->decode_entities($value);
-        $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
-        return $value;
-    }
-
-    /**
-     * Decode HTML entities from a string.
-     *
-     * WordPress functions often return HTML-entity-encoded strings.
-     * This ensures clean markdown output.
-     *
-     * @param string $value The value to decode.
-     * @return string The decoded value.
-     */
-    private function decode_entities(string $value): string {
-        return html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
 
     /**
      * Strip syntax highlighting markup from code blocks.

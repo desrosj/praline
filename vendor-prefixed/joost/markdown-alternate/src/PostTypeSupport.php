@@ -1,5 +1,5 @@
 <?php
-/* Modified by Praline on 2026-11-22: namespaces prefixed with Strauss. Original: https://github.com/ProgressPlanner/markdown-alternate (GPL-2.0-or-later). */
+/* Modified by Praline on 2026-11-28: namespaces prefixed with Strauss. Original: https://github.com/ProgressPlanner/markdown-alternate (GPL-2.0-or-later). */
 /**
  * Post type support utility for markdown output.
  *

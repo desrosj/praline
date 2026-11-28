@@ -4,7 +4,7 @@
     'name' => 'desrosj/praline',
     'pretty_version' => 'dev-main',
     'version' => 'dev-main',
-    'reference' => '36c2901f0bec8a1d3171e5b48f85bb95b1c32354',
+    'reference' => '2e0ebf316f0278b34cd6aa558006c01c4f8eba86',
     'type' => 'wordpress-plugin',
     'install_path' => __DIR__ . '/../',
     'aliases' => 
@@ -16,9 +16,9 @@
   array (
     'joost/markdown-alternate' => 
     array (
-      'pretty_version' => 'v1.2.0',
-      'version' => '1.2.0.0',
-      'reference' => '68c1838178c2a1a858518fa2df742254713c610b',
+      'pretty_version' => 'v1.3.0',
+      'version' => '1.3.0.0',
+      'reference' => '95793d91e087169a08e08612daaddd1bdfc5db7e',
       'type' => 'wordpress-plugin',
       'install_path' => __DIR__ . '/../joost/markdown-alternate',
       'aliases' => 

@@ -82,4 +82,39 @@ class RouterTest extends WP_UnitTestCase {
 		$this->assertSame( 200, $router->route( '/blog/.well-known/bonbon.json' )->status );
 		$this->assertNull( $router->route( '/.well-known/bonbon.json' ) );
 	}
+
+	public function test_answers_after_template_redirect_hooks_at_the_default_priority() {
+		// Plugins that restrict content (a login requirement, a maintenance
+		// mode) run at 10; Markdown Alternate's handlers at 15.
+		$router = new Router();
+		$router->register();
+
+		$priority = has_action( 'template_redirect', array( $router, 'handle' ) );
+		$this->assertGreaterThan( 10, $priority );
+		$this->assertLessThan( 15, $priority );
+		$this->assertFalse( has_action( 'parse_request', array( $router, 'handle' ) ), 'Nothing is sent from parse_request.' );
+	}
+
+	public function test_a_matched_request_queries_nothing_and_is_not_a_404() {
+		self::factory()->post->create();
+		$router = new Router();
+		$router->register();
+
+		$this->go_to( home_url( '/.well-known/toc.opml' ) );
+
+		$this->assertSame( array(), $GLOBALS['wp_query']->posts );
+		$this->assertFalse( is_404() );
+		$this->assertFalse( apply_filters( 'redirect_canonical', home_url( '/somewhere/' ), home_url( '/.well-known/toc.opml' ) ) );
+	}
+
+	public function test_other_requests_are_queried_as_usual() {
+		$post   = self::factory()->post->create();
+		$router = new Router();
+		$router->register();
+
+		$this->go_to( get_permalink( $post ) );
+
+		$this->assertSame( $post, $GLOBALS['wp_query']->posts[0]->ID );
+		$this->assertFalse( has_filter( 'posts_pre_query', array( $router, 'skip_main_query' ) ) );
+	}
 }

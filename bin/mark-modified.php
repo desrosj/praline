@@ -27,7 +27,8 @@ foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, 
 	}
 	$source = file_get_contents( $file->getPathname() );
 	if ( false === strpos( $source, $marker ) ) {
-		$source = preg_replace( '/^<\?php\r?\n/', "<?php\n" . $notice . "\n", $source, 1, $replaced );
+		// After the opening line, which may carry a comment of its own.
+		$source = preg_replace( '/^(<\?php(?:[ \t][^\r\n]*)?)\r?\n/', '$1' . "\n" . $notice . "\n", $source, 1, $replaced );
 		if ( 1 !== $replaced ) {
 			fwrite( STDERR, "Can't mark {$file->getPathname()}: it doesn't start with <?php\n" );
 			exit( 1 );

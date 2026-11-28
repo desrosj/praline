@@ -98,31 +98,32 @@ class MarkdownRouterTest extends WP_UnitTestCase {
 		$router = new MarkdownRouter();
 		$router->register();
 
-		$this->assertSame( MarkdownRouter::SERVE_PRIORITY, has_action( 'template_redirect', array( $router, 'handle_accept_negotiation' ) ) );
+		$this->assertNotFalse( has_action( 'template_redirect', array( $router, 'handle_accept_negotiation' ) ) );
 	}
 
 	public function test_markdown_is_answered_after_template_redirect_hooks_at_the_default_priority() {
 		// Plugins that restrict content (a login requirement, a maintenance
-		// mode) and WordPress's redirect_canonical() run at 10.
+		// mode) and WordPress's redirect_canonical() run at 10. Upstream
+		// answers at 15 since 1.3.0.
 		$router = new MarkdownRouter();
 		$router->register();
 
-		foreach ( MarkdownRouter::HANDLERS as $handler ) {
+		foreach ( array( 'handle_format_parameter', 'handle_accept_negotiation', 'handle_markdown_request' ) as $handler ) {
 			$this->assertGreaterThan( 10, has_action( 'template_redirect', array( $router, $handler ) ), $handler );
 		}
 	}
 
-	public function test_upstreams_handlers_keep_their_order() {
-		$router = new MarkdownRouter();
-		$router->register();
+	public function test_no_taxonomy_archives_are_served() {
+		( new MarkdownRouter() )->register();
 
-		$hooked = array();
-		foreach ( $GLOBALS['wp_filter']['template_redirect']->callbacks[ MarkdownRouter::SERVE_PRIORITY ] as $callback ) {
-			if ( is_array( $callback['function'] ) && $router === $callback['function'][0] ) {
-				$hooked[] = $callback['function'][1];
-			}
-		}
+		$this->assertSame( array(), Praline\Vendor\MarkdownAlternate\TaxonomySupport::get_supported_taxonomies() );
+	}
 
-		$this->assertSame( MarkdownRouter::HANDLERS, $hooked );
+	public function test_bonbon_gets_a_category_archives_html() {
+		( new MarkdownRouter() )->register();
+		$category = self::factory()->category->create( array( 'slug' => 'baseball' ) );
+		self::factory()->post->create( array( 'post_category' => array( $category ) ) );
+
+		$this->assertNull( $this->redirect_from( get_category_link( $category ) ) );
 	}
 }
